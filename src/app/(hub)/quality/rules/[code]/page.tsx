@@ -4,10 +4,10 @@ import { Download, FileBarChart2 } from "lucide-react";
 import { EChart } from "@/components/EChart";
 import { FilterBar } from "@/components/FilterBar";
 import { PERIOD_OPTIONS } from "@/lib/format";
-import { Badge, Card, Delta, EmptyState, Kpi, PageHeader, Provenance, SeverityBadge } from "@/components/ui";
+import { Badge, Card, Delta, EmptyState, Kpi, PageHeader, Provenance, SeverityBadge, SourceBadge } from "@/components/ui";
 import { C, barScores, lineTrend } from "@/lib/charts";
 import { hasRole, requireUser } from "@/lib/auth";
-import { DIMENSION_LABEL, fmtDate, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
+import { DIMENSION_LABEL, SOURCE_DESCRIPTION, fmtDate, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
 import { getDepartments, getFailures, getRule, getRuleByDepartment, getRuleHistory } from "@/lib/queries";
 import { createIssueAction } from "../../../actions";
 
@@ -92,8 +92,9 @@ export default async function RuleDetailPage({
               <p style={{ margin: "4px 0 0" }}>{rule.impact}</p>
             </div>
             <div>
-              <div className="kpi-label">Como corrigir</div>
+              <div className="kpi-label">Como corrigir · {rule.problem_source === "crm" ? "departamento responsável (RD Station)" : "Engenharia de Dados (pipeline)"}</div>
               <p style={{ margin: "4px 0 0" }}>{rule.recommendation}</p>
+              <p className="small muted" style={{ margin: "6px 0 0" }}>{SOURCE_DESCRIPTION[rule.problem_source]}</p>
             </div>
           </div>
         </Card>
@@ -102,6 +103,7 @@ export default async function RuleDetailPage({
       <Card title="Origem e regra do indicador" className="mt">
         <Provenance
           items={[
+            { label: "Origem do problema", value: <><SourceBadge source={rule.problem_source} /> <span className="small muted">{rule.source_note}</span></> },
             { label: "Dimensão", value: DIMENSION_LABEL[rule.dimension] },
             { label: "Dataset", value: <Link href={`/catalog?obj=${rule.dataset_name}`}>{rule.dataset_name}</Link> },
             { label: "Campo", value: rule.column_name ?? "—" },

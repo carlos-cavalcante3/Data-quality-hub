@@ -43,6 +43,14 @@ export default async function ReportsPage() {
             </select>
           </label>
           <label>
+            Origem dos problemas
+            <select name="origem" defaultValue="crm">
+              <option value="crm">Somente CRM (para enviar ao departamento)</option>
+              <option value="pipeline">Somente Banco/ETL (uso interno)</option>
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label>
             Período da evolução
             <select name="periodo" defaultValue="90">
               {PERIOD_OPTIONS.map((p) => (

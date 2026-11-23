@@ -12,6 +12,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 dotenv.config({ path: path.join(root, ".env.local"), quiet: true });
 
 const url = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL_READONLY;
+// Pooler em modo transação (6543): o modo sessão (5432) aceita poucos clientes e é compartilhado.
+const toTransactionPooler = (raw) => { if (!raw) return raw; const u = new URL(raw); if (u.hostname.endsWith('pooler.supabase.com')) u.port = '6543'; return u.toString(); };
 if (!url) {
   console.error("Defina DATABASE_URL_ADMIN no .env.local (usuário com permissão de DDL).");
   process.exit(1);
@@ -20,7 +22,7 @@ const dry = process.argv.includes("--dry");
 const dir = path.join(root, "supabase", "migrations");
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: toTransactionPooler(url), ssl: { rejectUnauthorized: false } });
 await client.connect();
 await client.query(`
   create schema if not exists control;

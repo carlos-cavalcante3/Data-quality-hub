@@ -78,11 +78,11 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const execDays = [...new Set(execDaily.map((e) => e.day))].sort();
   const sumBy = (day: string, k: "sucesso" | "falha" | "outros") => execDaily.filter((e) => e.day === day).reduce((a, e) => a + e[k], 0);
 
-  // Atenção: regras abaixo da meta, ordenadas por severidade e volume
-  const attention = rules
-    .filter((r) => r.meets_threshold === false || r.last_status === "erro")
-    .sort(byPriority)
-    .slice(0, 10);
+  // Atenção: regras fora da meta, separadas por ONDE o problema nasce
+  const outOfTarget = rules.filter((r) => r.meets_threshold === false || r.last_status === "erro").sort(byPriority);
+  const attentionCrm = outOfTarget.filter((r) => r.problem_source === "crm");
+  const attentionPipeline = outOfTarget.filter((r) => r.problem_source === "pipeline");
+  const sumFailed = (list: typeof rules) => list.reduce((a, r) => a + (r.records_failed ?? 0), 0);
   const badPipelines = pipelines.filter((p) => ["atrasado", "critico", "sem_evidencia"].includes(p.health));
 
   return (
@@ -206,41 +206,23 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       </div>
 
       <div className="grid g-2" style={{ marginTop: 14 }}>
-        <Card title="Exigem atenção" subtitle="Problemas fora da meta · ordem: severidade, depois registros afetados">
-          {attention.length === 0 ? (
-            <EmptyState title="Todas as regras estão dentro da meta" />
-          ) : (
-            <div className="table-wrap">
-              <table className="t">
-                <thead>
-                  <tr>
-                    <th>Problema</th>
-                    <th>Dimensão</th>
-                    <th>Sev.</th>
-                    <th className="num">Afetados</th>
-                    <th className="num">Score</th>
-                    <th className="num">Meta</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attention.map((r) => (
-                    <tr key={r.code}>
-                      <td>
-                        <Link href={`/quality/rules/${r.code}`}>{problemOf(r)}</Link>
-                        <div className="muted small">{r.dataset_name}{r.column_name ? ` · ${r.column_name}` : ""}</div>
-                      </td>
-                      <td>{DIMENSION_LABEL[r.dimension]}</td>
-                      <td><SeverityBadge severity={r.severity} /></td>
-                      <td className="num">{fmtInt(r.records_failed)} <span className="muted">/ {fmtInt(r.records_evaluated)}</span></td>
-                      <td className="num">{r.last_status === "erro" ? <Badge kind="erro" /> : fmtPct(r.quality_score)}</td>
-                      <td className="num muted">{fmtPct(r.expected_threshold, 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <Card
+          title={`Ação dos departamentos · CRM (${attentionCrm.length})`}
+          subtitle={`Cadastro no RD Station · ${fmtInt(sumFailed(attentionCrm))} registros afetados · ordem: severidade, afetados`}
+          actions={<Link className="btn" href="/quality?origem=crm">Ver todos</Link>}
+        >
+          <AttentionTable rules={attentionCrm.slice(0, 8)} />
         </Card>
+        <Card
+          title={`Ação da Engenharia de Dados · Banco/ETL (${attentionPipeline.length})`}
+          subtitle={`Extração, transformação ou carga · ${fmtInt(sumFailed(attentionPipeline))} registros afetados`}
+          actions={<Link className="btn" href="/quality?origem=pipeline">Ver todos</Link>}
+        >
+          <AttentionTable rules={attentionPipeline.slice(0, 8)} />
+        </Card>
+      </div>
+
+      <div className="grid g-2" style={{ marginTop: 14 }}>
         <Card title="Datasets fora do SLA de atualização" subtitle="Última atualização observada × intervalo esperado">
           {staleDatasets.length === 0 ? (
             <EmptyState title="Todos os datasets com SLA estão em dia" />
@@ -272,5 +254,38 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </Card>
       </div>
     </>
+  );
+}
+
+function AttentionTable({ rules }: { rules: Awaited<ReturnType<typeof getRules>> }) {
+  if (rules.length === 0) return <EmptyState title="Nada fora da meta" />;
+  return (
+    <div className="table-wrap">
+      <table className="t">
+        <thead>
+          <tr>
+            <th>Problema</th>
+            <th>Sev.</th>
+            <th className="num">Afetados</th>
+            <th className="num">Conformidade</th>
+            <th className="num">Meta</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rules.map((r) => (
+            <tr key={r.code}>
+              <td>
+                <Link href={`/quality/rules/${r.code}`}>{problemOf(r)}</Link>
+                <div className="muted small">{DIMENSION_LABEL[r.dimension]} · {r.dataset_name}{r.column_name ? ` · ${r.column_name}` : ""}</div>
+              </td>
+              <td><SeverityBadge severity={r.severity} /></td>
+              <td className="num">{fmtInt(r.records_failed)} <span className="muted">/ {fmtInt(r.records_evaluated)}</span></td>
+              <td className="num">{r.last_status === "erro" ? <Badge kind="erro" /> : fmtPct(r.quality_score)}</td>
+              <td className="num muted">{fmtPct(r.expected_threshold, 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

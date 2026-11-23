@@ -20,7 +20,9 @@ export type Rule = {
   last_run_id: number | null; last_evaluated_at: Date | null; last_status: string | null; error_message: string | null;
   records_evaluated: number | null; records_passed: number | null; records_failed: number | null; quality_score: number | null;
   band: string; meets_threshold: boolean | null; previous_score: number | null; previous_day: string | null; delta_score: number | null;
+  problem_source: ProblemSource; source_note: string | null;
 };
+export type ProblemSource = "crm" | "pipeline";
 export type Department = { id: number; code: string; name: string; source: string; priority: number; active: boolean };
 export type DepartmentSummary = {
   department_id: number; code: string; name: string; source: string; priority: number;
@@ -48,6 +50,7 @@ export type DatasetMetric = {
 export type Failure = {
   run_id: number; rule_code: string; rule_name: string; problem_label: string | null; dimension: string; dataset_name: string; entity: string;
   record_id: string; record_label: string | null; detail: string | null; department_id: number | null; department_name: string | null;
+  problem_source: ProblemSource;
 };
 export type Issue = {
   id: number; rule_id: number | null; department_id: number | null; title: string; description: string | null;
@@ -125,10 +128,10 @@ export const getRuleByDepartment = (code: string) =>
     [code],
   );
 
-export type DeptRuleResult = { rule_code: string; rule_name: string; problem_label: string | null; severity: string; entity: string; column_name: string | null; dimension: string; dataset_name: string; records_evaluated: number; records_failed: number; quality_score: number | null };
+export type DeptRuleResult = { rule_code: string; rule_name: string; problem_label: string | null; problem_source: ProblemSource; severity: string; entity: string; column_name: string | null; dimension: string; dataset_name: string; records_evaluated: number; records_failed: number; quality_score: number | null };
 export const getDepartmentRuleResults = (departmentId: number) =>
   query<DeptRuleResult & { dimension: string; dataset_name: string; records_evaluated: number; records_failed: number; quality_score: number | null }>(
-    `select rule_code, rule_name, problem_label, severity, entity, column_name, dimension, dataset_name, records_evaluated, records_failed, quality_score
+    `select rule_code, rule_name, problem_label, problem_source, severity, entity, column_name, dimension, dataset_name, records_evaluated, records_failed, quality_score
      from hub.v_rule_results where department_id = $1 and run_id = (select id from hub.v_last_run) and status = 'ok'
      order by records_failed desc`,
     [departmentId],

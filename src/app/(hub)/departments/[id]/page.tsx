@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { FileBarChart2 } from "lucide-react";
 import { EChart } from "@/components/EChart";
 import { FilterBar } from "@/components/FilterBar";
-import { Badge, Card, Delta, EmptyState, Kpi, PageHeader, ScoreBar, SeverityBadge } from "@/components/ui";
+import { Badge, Card, Delta, EmptyState, Kpi, PageHeader, ScoreBar, SeverityBadge, SourceBadge } from "@/components/ui";
 import { C, barScores, lineTrend } from "@/lib/charts";
 import { DIMENSION_LABEL, ISSUE_STATUS_LABEL, PERIOD_OPTIONS, fmtDate, fmtInt, fmtPct } from "@/lib/format";
 import { byAffected, problemOf } from "@/lib/sort";
@@ -190,16 +190,17 @@ export default async function DepartmentPage({ params, searchParams }: { params:
           links={{}}
           height={Math.max(240, completeness.length * 28 + 60)}
         />
-        <Card title="Principais problemas" subtitle="Ordem: mais registros afetados primeiro (um registro pode aparecer em vários)">
+        <Card title="Principais problemas" subtitle="Ordem: mais registros afetados primeiro · CRM = correção pelo departamento; Banco/ETL = correção pela Engenharia de Dados">
           {problems.length === 0 ? <EmptyState title="Nenhum problema encontrado" /> : (
             <table className="t t-compact">
               <thead>
-                <tr><th>Problema</th><th>Sev.</th><th className="num">Afetados</th><th className="num">Avaliados</th><th style={{ width: 90 }}>Conformidade</th></tr>
+                <tr><th>Problema</th><th>Origem</th><th>Sev.</th><th className="num">Afetados</th><th className="num">Avaliados</th><th style={{ width: 90 }}>Conformidade</th></tr>
               </thead>
               <tbody>
                 {problems.map((r) => (
                   <tr key={r.rule_code}>
                     <td><Link href={`/quality/rules/${r.rule_code}?departamento=${id}`}>{problemOf(r)}</Link><div className="small muted">{DIMENSION_LABEL[r.dimension]} · {r.dataset_name}</div></td>
+                    <td><SourceBadge source={r.problem_source} /></td>
                     <td><SeverityBadge severity={r.severity} /></td>
                     <td className="num"><strong>{fmtInt(r.records_failed)}</strong></td>
                     <td className="num muted">{fmtInt(r.records_evaluated)}</td>

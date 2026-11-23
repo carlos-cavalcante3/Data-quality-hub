@@ -125,3 +125,13 @@ export const PERIOD_OPTIONS = [
   { value: "180", label: "Últimos 180 dias" },
   { value: "365", label: "Último ano" },
 ];
+
+export const SOURCE_LABEL: Record<string, string> = { crm: "CRM", pipeline: "Banco/ETL" };
+export const SOURCE_DESCRIPTION: Record<string, string> = {
+  crm: "Nasce no cadastro do RD Station. Correção pelo departamento responsável pelo registro.",
+  pipeline: "Nasce na extração, transformação ou carga dos dados. Correção pela Engenharia de Dados.",
+};
+export const SOURCE_OPTIONS = [
+  { value: "crm", label: "CRM (cadastro)" },
+  { value: "pipeline", label: "Banco/ETL (pipeline)" },
+];

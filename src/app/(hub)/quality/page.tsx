@@ -2,9 +2,9 @@ import Link from "next/link";
 import { EChart } from "@/components/EChart";
 import { FilterBar } from "@/components/FilterBar";
 import { PERIOD_OPTIONS } from "@/lib/format";
-import { Badge, Card, Delta, EmptyState, PageHeader, ScoreBar, SeverityBadge } from "@/components/ui";
+import { Badge, Card, Delta, EmptyState, PageHeader, ScoreBar, SeverityBadge, SourceBadge } from "@/components/ui";
 import { C, barScores, lineTrend, stackedBars } from "@/lib/charts";
-import { DIMENSION_LABEL, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
+import { DIMENSION_LABEL, SOURCE_OPTIONS, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
 import { RULE_SORTS, byAffected, problemOf, sortRules } from "@/lib/sort";
 import { getDepartmentDimensionIssues, getDepartments, getDimensions, getRules, getScoreTrend, getScoresLatest } from "@/lib/queries";
 
@@ -13,7 +13,7 @@ export const metadata = { title: "Data Quality" };
 export default async function QualityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dimensao?: string; dataset?: string; departamento?: string; periodo?: string; q?: string; ordem?: string }>;
+  searchParams: Promise<{ dimensao?: string; dataset?: string; departamento?: string; periodo?: string; q?: string; ordem?: string; origem?: string }>;
 }) {
   const sp = await searchParams;
   const days = Number(sp.periodo ?? 90) || 90;
@@ -25,6 +25,7 @@ export default async function QualityPage({
     (r) =>
       (!sp.dimensao || r.dimension === sp.dimensao) &&
       (!sp.dataset || r.dataset_name === sp.dataset) &&
+      (!sp.origem || r.problem_source === sp.origem) &&
       (!sp.q || (r.name + (r.problem_label ?? "") + r.code + (r.column_name ?? "")).toLowerCase().includes(sp.q.toLowerCase())),
   );
   const rules = sortRules(filtered, sp.ordem);
@@ -69,6 +70,7 @@ export default async function QualityPage({
           { key: "dataset", label: "Tabela", type: "select", allLabel: "Todas", options: datasets.map((d) => ({ value: d, label: d })) },
           { key: "periodo", label: "Período", type: "select", options: PERIOD_OPTIONS, defaultValue: "90" },
           { key: "q", label: "Regra ou campo", type: "search", placeholder: "ex.: cnpj" },
+          { key: "origem", label: "Origem do problema", type: "select", allLabel: "CRM e Banco/ETL", options: SOURCE_OPTIONS },
           { key: "ordem", label: "Ordenar regras por", type: "select", options: RULE_SORTS, defaultValue: "prioridade" },
         ]}
       />
@@ -172,6 +174,7 @@ export default async function QualityPage({
                 <th>Regra</th>
                 <th>Dimensão</th>
                 <th>Tabela · campo</th>
+                <th>Origem</th>
                 <th>Sev.</th>
                 <th className="num">Avaliados</th>
                 <th className="num">Afetados</th>
@@ -195,6 +198,7 @@ export default async function QualityPage({
                     {r.dataset_name}
                     {r.column_name && <div className="muted mono">{r.column_name}</div>}
                   </td>
+                  <td><SourceBadge source={r.problem_source} /></td>
                   <td><SeverityBadge severity={r.severity} /></td>
                   <td className="num">{fmtInt(r.records_evaluated)}</td>
                   <td className="num">{fmtInt(r.records_failed)}</td>

@@ -17,12 +17,13 @@ export const metadata = { title: "Relatório" };
 type Row = {
   code: string; name: string; problem_label: string | null; severity: string; dimension: string; dataset: string; column: string | null;
   evaluated: number; failed: number; score: number | null; impact: string | null; recommendation: string | null; delta: number | null;
+  source: string;
 };
 
 export default async function ReportView({
   searchParams,
 }: {
-  searchParams: Promise<{ departamento?: string; regra?: string; dimensao?: string; periodo?: string; notas?: string; exemplos?: string; issue?: string }>;
+  searchParams: Promise<{ departamento?: string; regra?: string; dimensao?: string; periodo?: string; notas?: string; exemplos?: string; issue?: string; origem?: string }>;
 }) {
   const sp = await searchParams;
   const user = await requireUser();
@@ -40,13 +41,19 @@ export default async function ReportView({
         code: r.rule_code, name: r.rule_name, problem_label: r.problem_label, severity: r.severity, dimension: r.dimension, dataset: r.dataset_name,
         column: r.column_name, evaluated: r.records_evaluated, failed: r.records_failed, score: r.quality_score,
         impact: meta.get(r.rule_code)?.impact ?? null, recommendation: meta.get(r.rule_code)?.recommendation ?? null, delta: null,
+        source: r.problem_source,
       }))
     : rulesAll.filter((r) => r.last_status === "ok" && (r.records_evaluated ?? 0) > 0).map((r) => ({
         code: r.code, name: r.name, problem_label: r.problem_label, severity: r.severity, dimension: r.dimension, dataset: r.dataset_name,
         column: r.column_name, evaluated: r.records_evaluated ?? 0, failed: r.records_failed ?? 0, score: r.quality_score,
         impact: r.impact, recommendation: r.recommendation, delta: r.delta_score,
+        source: r.problem_source,
       }));
-  const results = scoped.filter((r) => (!sp.regra || r.code === sp.regra) && (!sp.dimensao || r.dimension === sp.dimensao));
+  // Origem: por padrão o relatório de um departamento mostra só problemas de CRM (responsabilidade dele)
+  const origem = sp.origem ?? (deptId ? "crm" : "");
+  const results = scoped.filter(
+    (r) => (!sp.regra || r.code === sp.regra) && (!sp.dimensao || r.dimension === sp.dimensao) && (!origem || sp.regra || r.source === origem),
+  );
   const rule = sp.regra ? meta.get(sp.regra) : null;
 
   const [scores, trendAll, trendDept, ruleHistory, examples] = await Promise.all([
@@ -106,7 +113,7 @@ export default async function ReportView({
               {rule ? problemOf(rule) : sp.dimensao ? `Dimensão ${DIMENSION_LABEL[sp.dimensao]}` : "Situação geral da qualidade"}
             </h1>
             <div className="small" style={{ marginTop: 4 }}>
-              Departamento: <strong>{scopeName}</strong> · Período analisado: últimos {days} dias (até {fmtDate(generatedAt)})
+              Departamento: <strong>{scopeName}</strong>{origem && !sp.regra ? <> · Problemas de <strong>{origem === "crm" ? "cadastro no CRM" : "banco/ETL"}</strong></> : null} · Período analisado: últimos {days} dias (até {fmtDate(generatedAt)})
             </div>
           </div>
           <div className="small" style={{ textAlign: "right", color: "var(--text-2)" }}>

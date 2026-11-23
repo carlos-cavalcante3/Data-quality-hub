@@ -130,3 +130,15 @@ export function Provenance({ items }: { items: { label: string; value: ReactNode
     </dl>
   );
 }
+
+export function SourceBadge({ source }: { source: string }) {
+  const crm = source === "crm";
+  return (
+    <span
+      className={`badge badge-outline ${crm ? "badge-warn" : "badge-info"}`}
+      title={crm ? "Cadastro no RD Station — correção pelo departamento" : "Extração/transformação/carga — correção pela Engenharia de Dados"}
+    >
+      {crm ? "CRM" : "Banco/ETL"}
+    </span>
+  );
+}

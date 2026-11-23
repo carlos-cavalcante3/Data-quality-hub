@@ -42,10 +42,19 @@ Faixas: Alta ≥ 95% · Intermediária 80–95% · Baixa < 80%.`}</pre>
         </table>
       </Card>
 
+      <Card className="mt" title="Origem do problema: CRM × Banco/ETL">
+        <ul className="small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+          <li><strong>CRM</strong>: o problema nasce no cadastro do RD Station (campo vazio, duplicidade, data incoerente). Correção pelo departamento responsável pelo registro. É o que vai nos relatórios para os departamentos.</li>
+          <li><strong>Banco/ETL</strong>: o problema nasce na extração, transformação ou carga (dado existe no RD mas não chega ou chega errado; referência a registro excluído; snapshot não gerado). Correção pela Engenharia de Dados.</li>
+          <li>Exemplo: segmento vazio na empresa é <em>CRM</em> quando também está vazio no RD (bronze), e <em>Banco/ETL</em> quando está preenchido no RD mas some na silver.</li>
+        </ul>
+      </Card>
+
       <Card className="mt" title="Atribuição de departamento">
         <ol className="small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
           <li>Override manual em <code>governance.user_department_override</code>, se existir.</li>
-          <li>Equipe do RD (<code>bronze.teams.user_ids</code>) do dono do registro (<code>owner_id</code>). Usuário em mais de uma equipe: a de menor prioridade (Vendas 10, Áudio e Vídeo 20, Backoffice 50, Marketing 60).</li>
+          <li>Equipe do RD (<code>bronze.teams.user_ids</code>) do dono do registro (<code>owner_id</code>).</li>
+          <li>Responsável em mais de uma equipe: vale a equipe ligada ao <strong>funil do negócio</strong> (<code>governance.pipeline_department</code>; para empresas, o funil com mais negócios). Sem vínculo de funil: prioridade (Vendas 10, Áudio e Vídeo 20, Backoffice 50, Marketing 60).</li>
           <li>Contatos herdam o dono da empresa; tarefas herdam o dono do negócio.</li>
           <li>Sem dono ou sem equipe → <strong>Não identificado</strong>. A origem do registro nunca define o departamento sozinha.</li>
         </ol>
@@ -54,12 +63,13 @@ Faixas: Alta ≥ 95% · Intermediária 80–95% · Baixa < 80%.`}</pre>
       <Card className="mt" title={`Catálogo de regras (${rules.length})`}>
         <div className="table-wrap">
           <table className="t t-compact">
-            <thead><tr><th>Código</th><th>Regra</th><th>Dimensão</th><th>População (denominador)</th><th className="num">Meta</th><th>Versão</th></tr></thead>
+            <thead><tr><th>Código</th><th>Regra</th><th>Origem</th><th>Dimensão</th><th>População (denominador)</th><th className="num">Meta</th><th>Versão</th></tr></thead>
             <tbody>
               {rules.map((r) => (
                 <tr key={r.code}>
                   <td className="mono small"><Link href={`/quality/rules/${r.code}`}>{r.code}</Link></td>
                   <td>{r.name}<div className="small muted">{r.description}</div></td>
+                  <td>{r.problem_source === "crm" ? "CRM" : "Banco/ETL"}</td>
                   <td>{DIMENSION_LABEL[r.dimension]}</td>
                   <td className="small">{r.population}</td>
                   <td className="num">{fmtPct(r.expected_threshold, 0)}</td>
