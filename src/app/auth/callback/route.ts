@@ -5,7 +5,8 @@ import { supabaseServer } from "@/lib/supabase";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/";
+  const raw = request.cookies.get("hub_next")?.value;
+  const next = raw ? decodeURIComponent(raw) : "/";
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
   if (!code) return NextResponse.redirect(new URL("/login?error=callback", url.origin));
 
@@ -22,5 +23,7 @@ export async function GET(request: NextRequest) {
     await supabase.auth.signOut();
     return NextResponse.redirect(new URL("/login?error=sso", url.origin));
   }
-  return NextResponse.redirect(new URL(safeNext, url.origin));
+  const res = NextResponse.redirect(new URL(safeNext, url.origin));
+  res.cookies.delete("hub_next");
+  return res;
 }

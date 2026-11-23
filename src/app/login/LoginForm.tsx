@@ -31,12 +31,15 @@ export function LoginForm({
     setError(null);
     setBusy(true);
     try {
+      // A URL de retorno precisa ser IDÊNTICA à cadastrada no Supabase (sem query string);
+      // a página de destino fica num cookie temporário lido pelo callback.
+      document.cookie = `hub_next=${encodeURIComponent(safeNext)}; path=/; max-age=600; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
       const supabase = createBrowserClient(supabaseUrl, supabaseKey);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: provider as "azure",
         options: {
           scopes: "openid email profile",
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (error) throw error;
