@@ -2,7 +2,7 @@
 
 ## Modelo de acesso
 
-- **Autenticação**: Supabase Auth com e-mail e senha ou link mágico. Os hooks existentes já restringem os domínios corporativos e a aplicação valida o domínio de novo.
+- **Autenticação**: exclusivamente SSO Microsoft (Entra ID, provedor `azure` do Supabase Auth). A aplicação recusa sessões criadas por senha/link e e-mails fora de @avantia.com.br, @wesafer.com e @esmgroup.com.br (no callback e a cada requisição). Os hooks do Supabase reforçam a restrição de domínio.
 - **Autorização**: papel `viewer`, `analyst` ou `admin`, definido em `governance.app_users` (ou `HUB_ADMIN_EMAILS` para bootstrap). Sem papel, o acesso é negado.
 - **Banco**: toda consulta da aplicação roda em transação com `SET LOCAL ROLE hub_app`. O papel `hub_app` só tem `USAGE` no schema `hub`, `SELECT` nas views `hub.v_*` e `EXECUTE` nas funções `hub.fn_*`. Escritas ocorrem apenas por essas funções (`SECURITY DEFINER`, com `search_path` fixo), que validam o papel e gravam auditoria.
 - **Nada de `service_role` no frontend.** A anon key é usada apenas para o login. Os dados vêm do servidor.

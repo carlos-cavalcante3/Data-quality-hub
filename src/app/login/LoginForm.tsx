@@ -3,69 +3,58 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-const DOMAINS = ["avantia.com.br", "wesafer.com", "esmgroup.com.br"];
+const ERRORS: Record<string, string> = {
+  dominio: "Acesso permitido apenas para contas @avantia.com.br, @wesafer.com e @esmgroup.com.br.",
+  sso: "O acesso é feito exclusivamente pelo login corporativo Microsoft.",
+  callback: "Não foi possível concluir o login. Tente novamente.",
+};
 
-export function LoginForm({ next, initialError, supabaseUrl, supabaseKey }: { next?: string; initialError?: string; supabaseUrl: string; supabaseKey: string }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"password" | "link">("password");
-  const [error, setError] = useState<string | null>(initialError ? "Não foi possível concluir o login." : null);
-  const [info, setInfo] = useState<string | null>(null);
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+    </svg>
+  );
+}
+
+export function LoginForm({
+  next, initialError, supabaseUrl, supabaseKey, provider,
+}: { next?: string; initialError?: string; supabaseUrl: string; supabaseKey: string; provider: string }) {
+  const [error, setError] = useState<string | null>(initialError ? ERRORS[initialError] ?? ERRORS.callback : null);
   const [busy, setBusy] = useState(false);
-
   const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function signIn() {
     setError(null);
-    setInfo(null);
-    const domain = email.trim().toLowerCase().split("@")[1];
-    if (!domain || !DOMAINS.includes(domain)) {
-      setError("Use seu e-mail corporativo.");
-      return;
-    }
     setBusy(true);
     try {
       const supabase = createBrowserClient(supabaseUrl, supabaseKey);
-      if (mode === "password") {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-        if (error) throw error;
-        window.location.assign(safeNext);
-      } else {
-        const { error } = await supabase.auth.signInWithOtp({
-          email: email.trim(),
-          options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}` },
-        });
-        if (error) throw error;
-        setInfo("Enviamos um link de acesso para o seu e-mail.");
-      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: provider as "azure",
+        options: {
+          scopes: "openid email profile",
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+        },
+      });
+      if (error) throw error;
     } catch {
-      setError(mode === "password" ? "E-mail ou senha inválidos." : "Não foi possível enviar o link. Verifique se o usuário existe.");
-    } finally {
+      setError(ERRORS.callback);
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit}>
-      <label className="field">
-        E-mail corporativo
-        <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-      </label>
-      {mode === "password" && (
-        <label className="field">
-          Senha
-          <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-        </label>
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 18 }}>
       {error && <div className="error">{error}</div>}
-      {info && <div className="success">{info}</div>}
-      <button className="btn btn-primary" disabled={busy} style={{ justifyContent: "center", padding: "9px" }}>
-        {busy ? "Aguarde…" : mode === "password" ? "Entrar" : "Enviar link de acesso"}
+      <button type="button" className="btn btn-primary" disabled={busy} onClick={signIn} style={{ justifyContent: "center", padding: "10px" }}>
+        <MicrosoftIcon /> {busy ? "Redirecionando…" : "Entrar com Microsoft"}
       </button>
-      <button type="button" className="btn" style={{ justifyContent: "center" }} onClick={() => setMode(mode === "password" ? "link" : "password")}>
-        {mode === "password" ? "Entrar com link por e-mail" : "Entrar com senha"}
-      </button>
-    </form>
+      <p className="small muted" style={{ margin: 0, textAlign: "center" }}>
+        Contas @avantia.com.br, @wesafer.com e @esmgroup.com.br
+      </p>
+    </div>
   );
 }

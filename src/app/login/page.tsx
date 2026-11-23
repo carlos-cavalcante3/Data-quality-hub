@@ -1,6 +1,6 @@
 import { Logo } from "@/components/Logo";
 import { redirect } from "next/navigation";
-import { getUser } from "@/lib/auth";
+import { getUser, ssoProvider } from "@/lib/auth";
 import { missingConfig, supabasePublicConfig } from "@/lib/env";
 import { LoginForm } from "./LoginForm";
 
@@ -27,7 +27,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           Acesso restrito a e-mails corporativos autorizados.
         </p>
         {cfg && missing.length === 0 ? (
-          <LoginForm next={sp.next} initialError={sp.error} supabaseUrl={cfg.url} supabaseKey={cfg.key} />
+          <LoginForm next={sp.next} initialError={sp.error} supabaseUrl={cfg.url} supabaseKey={cfg.key} provider={ssoProvider()} />
         ) : (
           <div className="callout" style={{ marginTop: 18 }}>
             <strong>Configuração incompleta no servidor.</strong> Defina as variáveis de ambiente abaixo e faça um novo deploy:

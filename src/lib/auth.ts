@@ -13,9 +13,23 @@ function list(env: string | undefined): string[] {
   return (env ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 }
 
+/** Domínios corporativos aceitos. A variável HUB_ALLOWED_DOMAINS só pode restringir esta lista, nunca ampliar. */
+export const CORPORATE_DOMAINS = ["avantia.com.br", "wesafer.com", "esmgroup.com.br"];
+
 export function allowedDomains(): string[] {
-  const d = list(process.env.HUB_ALLOWED_DOMAINS);
-  return d.length ? d : ["avantia.com.br", "wesafer.com", "esmgroup.com.br"];
+  const d = list(process.env.HUB_ALLOWED_DOMAINS).filter((x) => CORPORATE_DOMAINS.includes(x));
+  return d.length ? d : CORPORATE_DOMAINS;
+}
+
+/** Provedor SSO aceito (Microsoft Entra ID no Supabase = "azure"). Login por senha/link não é aceito. */
+export function ssoProvider(): string {
+  return (process.env.HUB_SSO_PROVIDER ?? "azure").trim().toLowerCase();
+}
+
+/** A sessão foi criada pelo SSO corporativo? */
+export function isSsoSession(appMetadata: unknown): boolean {
+  const meta = (appMetadata ?? {}) as { provider?: string; providers?: string[] };
+  return meta.provider === ssoProvider();
 }
 
 export function isAllowedEmail(email: string): boolean {
@@ -57,6 +71,7 @@ export const getUser = cache(async (): Promise<HubUser | null> => {
   const { data } = await supabase.auth.getClaims();
   const email = (data?.claims?.email as string | undefined)?.toLowerCase();
   if (!email || !isAllowedEmail(email)) return null;
+  if (!isSsoSession(data?.claims?.app_metadata)) return null;
   return { email, role: await resolveRole(email), devBypass: false };
 });
 
