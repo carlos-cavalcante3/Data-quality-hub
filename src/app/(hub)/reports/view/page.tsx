@@ -113,7 +113,7 @@ export default async function ReportView({
             <div>Gerado em {fmtDateTime(generatedAt)}</div>
             <div>por {user.email}</div>
             <div>Validação #{lastRun.id} · {fmtDateTime(lastRun.started_at)}</div>
-            <div>Fonte: Supabase/PostgreSQL (CRM RD Station)</div>
+            <div>Origem dos dados: CRM RD Station</div>
           </div>
         </header>
 

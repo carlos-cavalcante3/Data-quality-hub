@@ -90,7 +90,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       <PageHeader
         eyebrow="Visão executiva"
         title="Data Health Overview"
-        description="Quão confiáveis são os dados disponíveis hoje? Todos os indicadores mostram denominador, regra e data da última avaliação."
+        description="Confiabilidade e Rastreabilidade dos dados disponíveis"
         actions={
           <Link className="btn btn-accent" href="/reports">
             Gerar relatório

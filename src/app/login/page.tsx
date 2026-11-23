@@ -17,7 +17,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <Logo />
           <div>
             <div className="brand-name">Data Quality Hub</div>
-            <div className="brand-sub">Engenharia de Dados · Avantia</div>
           </div>
         </div>
         <h1 style={{ marginTop: 22 }}>Entrar</h1>

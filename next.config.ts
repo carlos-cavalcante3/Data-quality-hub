@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["pg"],
+  experimental: {
+    // Revisitar uma tela em até 60 s é instantâneo (cache do roteador no navegador).
+    staleTimes: { dynamic: 60, static: 300 },
+  },
   env: {
     // A URL e a anon key do Supabase são públicas por natureza (usadas só para autenticação).
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,

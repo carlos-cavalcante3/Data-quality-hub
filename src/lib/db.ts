@@ -1,5 +1,11 @@
 import "server-only";
 import pg from "pg";
+import { unstable_cache } from "next/cache";
+
+/** Tag de todas as leituras do Hub. Invalidada após validações e qualquer escrita. */
+export const HUB_DATA_TAG = "hub-data";
+/** Os dados mudam só a cada validação (diária/manual) ou escrita no Hub: 2 min de cache é seguro. */
+const CACHE_SECONDS = Number(process.env.HUB_CACHE_SECONDS ?? 120);
 
 // numeric/bigint → number; date → string (evita deslocamento de fuso)
 pg.types.setTypeParser(1700, (v) => (v === null ? null : Number(v)));
@@ -53,7 +59,7 @@ async function acquire(): Promise<HubClient> {
   return client;
 }
 
-export async function query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+async function queryDirect<T>(sql: string, params: unknown[]): Promise<T[]> {
   const client = await acquire();
   try {
     const res = await client.query(sql, params);
@@ -61,6 +67,18 @@ export async function query<T = Record<string, unknown>>(sql: string, params: un
   } finally {
     client.release();
   }
+}
+
+/**
+ * Leitura com cache compartilhado (mesmo resultado para todos os usuários autorizados;
+ * a autorização continua sendo verificada a cada requisição). Datas voltam como string ISO.
+ */
+export function query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+  if (CACHE_SECONDS <= 0) return queryDirect<T>(sql, params);
+  return unstable_cache(() => queryDirect<T>(sql, params), ["hubq", sql, JSON.stringify(params)], {
+    tags: [HUB_DATA_TAG],
+    revalidate: CACHE_SECONDS,
+  })();
 }
 
 export async function queryOne<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T | null> {

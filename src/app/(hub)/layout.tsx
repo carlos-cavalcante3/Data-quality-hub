@@ -26,9 +26,6 @@ export default async function HubLayout({ children }: { children: React.ReactNod
               Último dado recebido: <strong>{fmtDateTime(meta?.last_data)}</strong>
             </span>
           </div>
-          <div className="topbar-meta">
-            <span>Fonte: Supabase/PostgreSQL · horário de Brasília</span>
-          </div>
         </header>
         <main className="content">{children}</main>
       </div>

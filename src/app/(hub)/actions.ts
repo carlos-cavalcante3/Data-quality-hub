@@ -1,10 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { clearRoleCache, requireUser } from "@/lib/auth";
-import { execute } from "@/lib/db";
+import { HUB_DATA_TAG, execute } from "@/lib/db";
 import { ISSUE_STATUS } from "@/lib/format";
 
 const statusValues = ISSUE_STATUS.map((s) => s.value) as [string, ...string[]];
@@ -12,6 +12,7 @@ const statusValues = ISSUE_STATUS.map((s) => s.value) as [string, ...string[]];
 export async function runQualityAction(): Promise<void> {
   const user = await requireUser("analyst");
   await execute("select hub.fn_run_quality($1, $2)", [user.email, user.role], "300s");
+  revalidateTag(HUB_DATA_TAG);
   revalidatePath("/", "layout");
   redirect("/settings?ok=run");
 }
@@ -30,6 +31,7 @@ export async function createIssueAction(formData: FormData): Promise<void> {
   const rows = await execute<{ id: number }>("select hub.fn_issue_create($1, $2, $3, $4, $5, $6, $7) as id", [
     user.email, user.role, data.rule_code, data.department_id ?? null, data.title, data.description ?? null, data.notes || null,
   ]);
+  revalidateTag(HUB_DATA_TAG);
   revalidatePath("/issues");
   redirect(`/issues/${rows[0].id}`);
 }
@@ -47,6 +49,7 @@ export async function updateIssueAction(formData: FormData): Promise<void> {
   await execute("select hub.fn_issue_update($1, $2, $3, $4, $5, $6)", [
     user.email, user.role, d.issue_id, d.status, d.note || null, d.records_corrected ?? null,
   ]);
+  revalidateTag(HUB_DATA_TAG);
   revalidatePath(`/issues/${d.issue_id}`);
   revalidatePath("/issues");
 }
@@ -62,6 +65,7 @@ export async function upsertUserAction(formData: FormData): Promise<void> {
   const d = userSchema.parse(Object.fromEntries(formData));
   await execute("select hub.fn_app_user_upsert($1, $2, $3, $4, $5)", [user.email, user.role, d.email, d.role, d.active]);
   clearRoleCache();
+  revalidateTag(HUB_DATA_TAG);
   revalidatePath("/settings");
 }
 
@@ -71,5 +75,6 @@ export async function updateWeightAction(formData: FormData): Promise<void> {
   const user = await requireUser("admin");
   const d = weightSchema.parse(Object.fromEntries(formData));
   await execute("select hub.fn_dimension_weight_update($1, $2, $3, $4)", [user.email, user.role, d.code, d.weight]);
+  revalidateTag(HUB_DATA_TAG);
   revalidatePath("/", "layout");
 }

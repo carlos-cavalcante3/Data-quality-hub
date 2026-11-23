@@ -31,7 +31,6 @@ export function Sidebar({ email, role }: { email: string; role: string }) {
         <Logo />
         <div>
           <div className="brand-name">Data Quality Hub</div>
-          <div className="brand-sub">Engenharia de Dados</div>
         </div>
       </div>
       <nav className="nav">

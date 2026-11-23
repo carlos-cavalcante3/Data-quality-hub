@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { execute } from "@/lib/db";
+import { revalidateTag } from "next/cache";
+import { HUB_DATA_TAG, execute } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -18,5 +19,6 @@ function authorized(req: NextRequest): boolean {
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const rows = await execute<{ run_id: number }>("select hub.fn_run_quality('vercel-cron', 'analyst') as run_id", [], "55s");
+  revalidateTag(HUB_DATA_TAG);
   return NextResponse.json({ ok: true, run_id: rows[0]?.run_id });
 }
