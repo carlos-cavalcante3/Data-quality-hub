@@ -13,61 +13,89 @@ pg.types.setTypeParser(1700, (v) => (v === null ? null : Number(v)));
 pg.types.setTypeParser(20, (v) => (v === null ? null : Number(v)));
 pg.types.setTypeParser(1082, (v) => v);
 
-const globalForPg = globalThis as unknown as { __hubPool?: pg.Pool };
-
-function connectionString(): string {
-  const url = databaseUrl();
-  if (!url) throw new Error("DATABASE_URL não configurada");
-  return url;
-}
+const globalForPg = globalThis as unknown as { __hubPool?: pg.Pool; __hubMode?: Mode };
 
 /**
- * Cada conexão nova assume o papel restrito hub_app uma única vez (nível de sessão).
- * Assim cada consulta custa UMA ida ao banco — antes eram 6 (begin, set role,
- * timeout, read only, consulta, commit), ~100 ms cada.
- * Em produção, o usuário hub_login já tem `ALTER ROLE ... SET role = hub_app`.
+ * Dois modos de conexão:
+ *  - "transacao" (serverless/Vercel): pooler Supavisor na porta 6543. Não prende conexões
+ *    entre requisições — o modo sessão (5432) aceita só 15 clientes e instâncias serverless
+ *    congeladas esgotavam o pool compartilhado com ETL e outros apps.
+ *    Cada consulta roda em transação curta com SET LOCAL ROLE hub_app.
+ *  - "sessao" (desenvolvimento local): SET ROLE uma vez por conexão; 1 ida ao banco por consulta.
  */
+type Mode = "transacao" | "sessao";
+
+function resolveConnection(): { url: string; mode: Mode } {
+  const raw = databaseUrl();
+  if (!raw) throw new Error("DATABASE_URL não configurada");
+  const u = new URL(raw);
+  const serverless = !!process.env.VERCEL || process.env.HUB_DB_MODE === "transacao";
+  if (serverless && u.hostname.endsWith("pooler.supabase.com") && u.port !== "6543") u.port = "6543";
+  const mode: Mode = u.port === "6543" ? "transacao" : "sessao";
+  return { url: u.toString(), mode };
+}
+
 function pool(): pg.Pool {
   if (!globalForPg.__hubPool) {
+    const { url, mode } = resolveConnection();
     const p = new pg.Pool({
-      connectionString: connectionString(),
+      connectionString: url,
       ssl: { rejectUnauthorized: false },
-      max: Number(process.env.DB_POOL_MAX ?? 10),
-      idleTimeoutMillis: 60_000,
+      max: Number(process.env.DB_POOL_MAX ?? (mode === "transacao" ? 2 : 8)),
+      idleTimeoutMillis: mode === "transacao" ? 5_000 : 60_000,
       connectionTimeoutMillis: 10_000,
-      keepAlive: true,
+      allowExitOnIdle: true,
     });
     p.on("error", () => undefined);
     globalForPg.__hubPool = p;
+    globalForPg.__hubMode = mode;
   }
   return globalForPg.__hubPool;
 }
 
 type HubClient = pg.PoolClient & { __hubReady?: boolean };
 
-/** Obtém uma conexão já restrita ao papel hub_app (SET ROLE só na primeira vez de cada conexão). */
-async function acquire(): Promise<HubClient> {
-  const client = (await pool().connect()) as HubClient;
-  if (!client.__hubReady) {
-    try {
+async function withClient<T>(fn: (c: HubClient) => Promise<T>, timeoutMs = 30_000): Promise<T> {
+  const p = pool();
+  const client = (await p.connect()) as HubClient;
+  const mode = globalForPg.__hubMode;
+  try {
+    if (mode === "transacao") {
+      await client.query(`begin; set local role hub_app; set local statement_timeout = ${Math.floor(timeoutMs)}`);
+      try {
+        const out = await fn(client);
+        await client.query("commit");
+        return out;
+      } catch (err) {
+        await client.query("rollback").catch(() => undefined);
+        throw err;
+      }
+    }
+    if (!client.__hubReady) {
       await client.query("set role hub_app; set statement_timeout = 30000");
       client.__hubReady = true;
-    } catch (err) {
-      client.release(err as Error);
-      throw err;
+    }
+    if (timeoutMs !== 30_000) await client.query(`set statement_timeout = ${Math.floor(timeoutMs)}`);
+    try {
+      return await fn(client);
+    } finally {
+      if (timeoutMs !== 30_000) await client.query("set statement_timeout = 30000").catch(() => undefined);
+    }
+  } catch (err) {
+    client.release(err as Error);
+    throw err;
+  } finally {
+    // release só se ainda não foi liberado com erro
+    try {
+      client.release();
+    } catch {
+      /* já liberado */
     }
   }
-  return client;
 }
 
 async function queryDirect<T>(sql: string, params: unknown[]): Promise<T[]> {
-  const client = await acquire();
-  try {
-    const res = await client.query(sql, params);
-    return res.rows as T[];
-  } finally {
-    client.release();
-  }
+  return withClient(async (c) => (await c.query(sql, params)).rows as T[]);
 }
 
 /**
@@ -87,15 +115,9 @@ export async function queryOne<T = Record<string, unknown>>(sql: string, params:
   return rows[0] ?? null;
 }
 
-/** Operações longas (ex.: executar validações): timeout estendido só nesta conexão. */
+/** Escritas e operações longas (ex.: executar validações), sem cache. */
 export async function execute<T = Record<string, unknown>>(sql: string, params: unknown[] = [], timeout = "120s"): Promise<T[]> {
-  const client = await acquire();
-  try {
-    await client.query(`set statement_timeout = '${timeout.replace(/[^0-9a-z]/gi, "")}'`);
-    const res = await client.query(sql, params);
-    return res.rows as T[];
-  } finally {
-    await client.query("set statement_timeout = 30000").catch(() => undefined);
-    client.release();
-  }
+  const n = Number(timeout.replace(/[^0-9]/g, "")) || 120;
+  const ms = /ms$/.test(timeout) ? n : n * 1000;
+  return withClient(async (c) => (await c.query(sql, params)).rows as T[], ms);
 }
