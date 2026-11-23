@@ -1,12 +1,12 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { supabasePublicConfig } from "./env";
 
 export function supabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error("SUPABASE_URL / SUPABASE_ANON_KEY não configuradas");
-  return { url, key };
+  const cfg = supabasePublicConfig();
+  if (!cfg) throw new Error("SUPABASE_URL / SUPABASE_ANON_KEY não configuradas");
+  return cfg;
 }
 
 export async function supabaseServer() {

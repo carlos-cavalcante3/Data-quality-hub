@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { supabasePublicConfig } from "@/lib/env";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/acesso-negado", "/api/cron"];
 
@@ -12,9 +13,9 @@ export async function middleware(request: NextRequest) {
   if (bypass) return NextResponse.next();
 
   let response = NextResponse.next({ request });
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return isPublic ? response : NextResponse.redirect(new URL("/login", request.url));
+  const cfg = supabasePublicConfig();
+  if (!cfg) return isPublic ? response : NextResponse.redirect(new URL("/login", request.url));
+  const { url, key } = cfg;
 
   const supabase = createServerClient(url, key, {
     cookies: {

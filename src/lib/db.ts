@@ -1,6 +1,7 @@
 import "server-only";
 import pg from "pg";
 import { unstable_cache } from "next/cache";
+import { databaseUrl } from "./env";
 
 /** Tag de todas as leituras do Hub. Invalidada após validações e qualquer escrita. */
 export const HUB_DATA_TAG = "hub-data";
@@ -15,7 +16,7 @@ pg.types.setTypeParser(1082, (v) => v);
 const globalForPg = globalThis as unknown as { __hubPool?: pg.Pool };
 
 function connectionString(): string {
-  const url = process.env.DATABASE_URL || process.env.DATABASE_URL_READONLY;
+  const url = databaseUrl();
   if (!url) throw new Error("DATABASE_URL não configurada");
   return url;
 }

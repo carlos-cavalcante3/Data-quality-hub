@@ -5,7 +5,7 @@ import { createBrowserClient } from "@supabase/ssr";
 
 const DOMAINS = ["avantia.com.br", "wesafer.com", "esmgroup.com.br"];
 
-export function LoginForm({ next, initialError }: { next?: string; initialError?: string }) {
+export function LoginForm({ next, initialError, supabaseUrl, supabaseKey }: { next?: string; initialError?: string; supabaseUrl: string; supabaseKey: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"password" | "link">("password");
@@ -13,7 +13,6 @@ export function LoginForm({ next, initialError }: { next?: string; initialError?
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
   async function submit(e: React.FormEvent) {
@@ -27,6 +26,7 @@ export function LoginForm({ next, initialError }: { next?: string; initialError?
     }
     setBusy(true);
     try {
+      const supabase = createBrowserClient(supabaseUrl, supabaseKey);
       if (mode === "password") {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
