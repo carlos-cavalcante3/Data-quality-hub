@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Card, PageHeader } from "@/components/ui";
 import { DIMENSION_LABEL, fmtPct } from "@/lib/format";
-import { getDimensions, getRules } from "@/lib/queries";
+import { ScopeTable } from "@/components/ScopeNotice";
+import { getAnalysisScope, getDimensions, getRules } from "@/lib/queries";
 
 export const metadata = { title: "Métricas e regras" };
 
 export default async function DocsPage() {
-  const [dims, rules] = await Promise.all([getDimensions(), getRules()]);
+  const [dims, rules, scope] = await Promise.all([getDimensions(), getRules(), getAnalysisScope()]);
   return (
     <>
       <PageHeader eyebrow="Documentação" title="Métricas, regras e critérios" description="Como cada número do Hub é calculado. Tudo aqui é lido do banco: pesos, regras e populações." />
@@ -40,6 +41,15 @@ Faixas: Alta ≥ 95% · Intermediária 80–95% · Baixa < 80%.`}</pre>
             ))}
           </tbody>
         </table>
+      </Card>
+
+      <Card className="mt" title="Escopo de análise" subtitle="Só entram os dados que alimentam os painéis da empresa">
+        <div id="escopo" />
+        <p className="small" style={{ marginTop: 0 }}>
+          As regras avaliam apenas negócios dos funis em <code>gold.pipelines_escopo</code>, e as empresas, contatos e tarefas ligados a eles.
+          Funis fora do escopo não afetam os indicadores usados pela empresa e não entram em scores, rankings nem relatórios.
+        </p>
+        <ScopeTable scope={scope} />
       </Card>
 
       <Card className="mt" title="Origem do problema: CRM × Banco/ETL">

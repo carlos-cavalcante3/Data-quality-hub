@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { EChart } from "@/components/EChart";
+import { ScopeNotice } from "@/components/ScopeNotice";
 import { FilterBar } from "@/components/FilterBar";
 import { PERIOD_OPTIONS } from "@/lib/format";
 import { Badge, Card, Delta, EmptyState, PageHeader, ScoreBar, SeverityBadge, SourceBadge } from "@/components/ui";
 import { C, barScores, lineTrend, stackedBars } from "@/lib/charts";
 import { DIMENSION_LABEL, SOURCE_OPTIONS, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
 import { RULE_SORTS, byAffected, problemOf, sortRules } from "@/lib/sort";
-import { getDepartmentDimensionIssues, getDepartments, getDimensions, getRules, getScoreTrend, getScoresLatest } from "@/lib/queries";
+import { getAnalysisScope, getDepartmentDimensionIssues, getDepartments, getDimensions, getRules, getScoreTrend, getScoresLatest } from "@/lib/queries";
 
 export const metadata = { title: "Data Quality" };
 
@@ -17,8 +18,8 @@ export default async function QualityPage({
 }) {
   const sp = await searchParams;
   const days = Number(sp.periodo ?? 90) || 90;
-  const [rulesAll, scores, trend, dims, depts, deptIssues] = await Promise.all([
-    getRules(), getScoresLatest(), getScoreTrend(days), getDimensions(), getDepartments(), getDepartmentDimensionIssues(),
+  const [rulesAll, scores, trend, dims, depts, deptIssues, scope] = await Promise.all([
+    getRules(), getScoresLatest(), getScoreTrend(days), getDimensions(), getDepartments(), getDepartmentDimensionIssues(), getAnalysisScope(),
   ]);
 
   const filtered = rulesAll.filter(
@@ -64,6 +65,7 @@ export default async function QualityPage({
         title="Qualidade dos dados"
         description="Resultados das regras de qualidade, sempre com população avaliada (denominador), regra e data. Clique em um indicador ou regra para ver os registros afetados."
       />
+      <ScopeNotice scope={scope} />
       <FilterBar
         filters={[
           { key: "dimensao", label: "Dimensão", type: "select", allLabel: "Todas", options: dims.map((d) => ({ value: d.code, label: d.name })) },

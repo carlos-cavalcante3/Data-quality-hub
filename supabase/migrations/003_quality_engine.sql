@@ -67,6 +67,13 @@ begin
   returning id into v_run;
   perform set_config('quality.run_id', v_run::text, true);
 
+  -- 0) Mudanças de negócios (substitui etapa parada do ETL; idempotente) ------
+  begin
+    perform gold.atualizar_historico_mudancas();
+  exception when others then
+    raise notice 'atualizar_historico_mudancas: %', sqlerrm;
+  end;
+
   -- 1) Métricas de volume e atualidade dos datasets monitorados ---------------
   for d in select * from provenance.dataset_registry where monitored and active and dataset_name like '%.%' order by dataset_name loop
     begin

@@ -302,3 +302,10 @@ export const getTeamMembersAssignedElsewhere = (departmentId: number, teamName: 
      where m.department_id <> $1 and $2 = any (string_to_array(m.all_teams, ', ')) order by m.user_name`,
     [departmentId, teamName],
   );
+
+// ----------------------------------------------------------------------------
+// Escopo de análise (funis usados pelos painéis)
+// ----------------------------------------------------------------------------
+export type ScopeRow = { pipeline_id: string; pipeline_name: string; in_scope: boolean; scope_use: string | null; exclusion_reason: string | null; deals: number };
+export const getAnalysisScope = () =>
+  query<ScopeRow>("select * from hub.v_analysis_scope order by in_scope desc, deals desc");

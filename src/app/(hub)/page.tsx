@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EChart } from "@/components/EChart";
+import { ScopeNotice } from "@/components/ScopeNotice";
 import { FilterBar } from "@/components/FilterBar";
 import { PERIOD_OPTIONS } from "@/lib/format";
 import { Badge, Card, EmptyState, Kpi, PageHeader, SeverityBadge } from "@/components/ui";
@@ -7,7 +8,7 @@ import { C, barScores, heatmap, lineTrend, stackedBars } from "@/lib/charts";
 import { byPriority, problemOf } from "@/lib/sort";
 import { DIMENSION_LABEL, bandOf, fmtAgo, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
 import {
-  getDatasetMetricsLatest, getDepartmentSummary, getDimensions, getExecutionDaily, getLastRun, getPipelines, getRules,
+  getAnalysisScope, getDatasetMetricsLatest, getDepartmentSummary, getDimensions, getExecutionDaily, getLastRun, getPipelines, getRules,
   getScoreTrend, getScoresLatest, getScoresLatestDepartment,
 } from "@/lib/queries";
 
@@ -17,9 +18,9 @@ export const metadata = { title: "Overview" };
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
   const sp = await searchParams;
   const days = Number(sp.periodo ?? 90) || 90;
-  const [lastRun, scores, trend, rules, depts, deptScores, pipelines, execDaily, datasets, dims] = await Promise.all([
+  const [lastRun, scores, trend, rules, depts, deptScores, pipelines, execDaily, datasets, dims, scope] = await Promise.all([
     getLastRun(), getScoresLatest(), getScoreTrend(days), getRules(), getDepartmentSummary(), getScoresLatestDepartment(),
-    getPipelines(), getExecutionDaily(30), getDatasetMetricsLatest(), getDimensions(),
+    getPipelines(), getExecutionDaily(30), getDatasetMetricsLatest(), getDimensions(), getAnalysisScope(),
   ]);
 
   if (!lastRun) {
@@ -97,6 +98,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           </Link>
         }
       />
+      <ScopeNotice scope={scope} />
       <FilterBar filters={[{ key: "periodo", label: "Período das séries", type: "select", options: PERIOD_OPTIONS, defaultValue: "90" }]} />
 
       <div className="grid g-6">
