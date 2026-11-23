@@ -34,7 +34,8 @@ export function ssoProvider(): string {
  */
 export function isSsoSession(claims: unknown): boolean {
   const c = (claims ?? {}) as { amr?: { method?: string }[]; app_metadata?: { provider?: string; providers?: string[] } };
-  const viaOAuth = Array.isArray(c.amr) && c.amr.some((a) => a?.method === "oauth");
+  // amr indica o método do login atual. Se presente, precisa ser oauth (senha/OTP/link recusados).
+  const viaOAuth = !Array.isArray(c.amr) || c.amr.length === 0 || c.amr.some((a) => a?.method === "oauth");
   const meta = c.app_metadata ?? {};
   const linked = meta.provider === ssoProvider() || (meta.providers ?? []).includes(ssoProvider());
   return viaOAuth && linked;
