@@ -8,6 +8,15 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
 
+  // Domínio canônico em produção: endereços de deploy da Vercel (data-quality-hub-xxxx.vercel.app)
+  // não estão na lista de Redirect URLs do Supabase, e o SSO cairia na Site URL de outro app.
+  const canonical = process.env.HUB_PUBLIC_HOST || process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const host = request.headers.get("host") ?? "";
+  if (process.env.VERCEL_ENV === "production" && canonical && host && host !== canonical && !path.startsWith("/api/cron")) {
+    const target = new URL(request.nextUrl.pathname + request.nextUrl.search, `https://${canonical}`);
+    return NextResponse.redirect(target, 308);
+  }
+
   const bypass =
     process.env.HUB_DEV_AUTH_BYPASS_EMAIL && process.env.NODE_ENV === "development" && !process.env.VERCEL;
   if (bypass) return NextResponse.next();
