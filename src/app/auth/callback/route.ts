@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     await supabase.auth.signOut();
     return NextResponse.redirect(new URL("/login?error=dominio", url.origin));
   }
-  if (!isSsoSession(data.user.app_metadata)) {
+  // Token recém-emitido pelo próprio Supabase (resposta TLS da troca do código)
+  const claims = JSON.parse(Buffer.from(data.session.access_token.split(".")[1], "base64url").toString("utf8"));
+  if (!isSsoSession(claims)) {
     await supabase.auth.signOut();
     return NextResponse.redirect(new URL("/login?error=sso", url.origin));
   }

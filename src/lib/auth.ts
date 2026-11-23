@@ -26,10 +26,18 @@ export function ssoProvider(): string {
   return (process.env.HUB_SSO_PROVIDER ?? "azure").trim().toLowerCase();
 }
 
-/** A sessão foi criada pelo SSO corporativo? */
-export function isSsoSession(appMetadata: unknown): boolean {
-  const meta = (appMetadata ?? {}) as { provider?: string; providers?: string[] };
-  return meta.provider === ssoProvider();
+/**
+ * A sessão ATUAL foi criada pelo SSO corporativo?
+ * - amr (método do login atual) precisa ser "oauth" — senha/OTP/link são recusados;
+ * - a conta precisa ter o provedor SSO vinculado (app_metadata.providers), mesmo que
+ *   tenha sido criada antes por e-mail em outro app do mesmo projeto Supabase.
+ */
+export function isSsoSession(claims: unknown): boolean {
+  const c = (claims ?? {}) as { amr?: { method?: string }[]; app_metadata?: { provider?: string; providers?: string[] } };
+  const viaOAuth = Array.isArray(c.amr) && c.amr.some((a) => a?.method === "oauth");
+  const meta = c.app_metadata ?? {};
+  const linked = meta.provider === ssoProvider() || (meta.providers ?? []).includes(ssoProvider());
+  return viaOAuth && linked;
 }
 
 export function isAllowedEmail(email: string): boolean {
@@ -71,7 +79,7 @@ export const getUser = cache(async (): Promise<HubUser | null> => {
   const { data } = await supabase.auth.getClaims();
   const email = (data?.claims?.email as string | undefined)?.toLowerCase();
   if (!email || !isAllowedEmail(email)) return null;
-  if (!isSsoSession(data?.claims?.app_metadata)) return null;
+  if (!isSsoSession(data?.claims)) return null;
   return { email, role: await resolveRole(email), devBypass: false };
 });
 
