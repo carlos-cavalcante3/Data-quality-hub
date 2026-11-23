@@ -3,7 +3,7 @@ import { Download, KeyRound, Link2, ListTree, Lock, Search } from "lucide-react"
 import { Badge, Card, EmptyState, Kpi, PageHeader, Provenance } from "@/components/ui";
 import { fmtBytes, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
 import {
-  getCatalogColumns, getCatalogFunctions, getCatalogObject, getCatalogObjects, getLineageEdges, getRules, searchColumns,
+  getCatalogColumns, getCatalogFunctions, getCatalogObjects, getLineageEdges, getRules, searchColumns,
 } from "@/lib/queries";
 
 export const metadata = { title: "Catálogo do banco" };
@@ -23,7 +23,14 @@ function href(sp: SP, patch: Partial<SP>) {
 export default async function CatalogPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const showHub = sp.hub === "1";
-  const all = await getCatalogObjects();
+  const [all, columns, edges, rules, colHits, functions] = await Promise.all([
+    getCatalogObjects(),
+    sp.obj ? getCatalogColumns(sp.obj) : Promise.resolve([]),
+    sp.obj ? getLineageEdges() : Promise.resolve([]),
+    sp.obj ? getRules() : Promise.resolve([]),
+    sp.coluna ? searchColumns(sp.coluna) : Promise.resolve([]),
+    sp.view === "funcoes" ? getCatalogFunctions() : Promise.resolve([]),
+  ]);
   const visible = all.filter((o) => showHub || !o.is_hub_object || o.full_name === sp.obj);
   const objects = visible.filter(
     (o) =>
@@ -34,15 +41,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const schemas = SCHEMA_ORDER.filter((s) => visible.some((o) => o.schema_name === s));
   const types = [...new Set(visible.map((o) => o.object_type))];
 
-  const selected = sp.obj ? await getCatalogObject(sp.obj) : null;
+  const selected = sp.obj ? all.find((o) => o.full_name === sp.obj) ?? null : null;
   const tab = sp.tab ?? "colunas";
-  const [columns, edges, rules, colHits, functions] = await Promise.all([
-    selected ? getCatalogColumns(selected.full_name) : Promise.resolve([]),
-    selected ? getLineageEdges() : Promise.resolve([]),
-    selected ? getRules() : Promise.resolve([]),
-    sp.coluna ? searchColumns(sp.coluna) : Promise.resolve([]),
-    sp.view === "funcoes" ? getCatalogFunctions() : Promise.resolve([]),
-  ]);
 
   const totals = {
     tabelas: visible.filter((o) => o.object_type.startsWith("tabela")).length,
@@ -223,7 +223,7 @@ function ObjectDetail({
   sp, selected, columns, edges, rules, tab,
 }: {
   sp: SP;
-  selected: NonNullable<Awaited<ReturnType<typeof getCatalogObject>>>;
+  selected: Awaited<ReturnType<typeof getCatalogObjects>>[number];
   columns: Awaited<ReturnType<typeof getCatalogColumns>>;
   edges: Awaited<ReturnType<typeof getLineageEdges>>;
   rules: Awaited<ReturnType<typeof getRules>>;

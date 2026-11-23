@@ -14,52 +14,69 @@ function connectionString(): string {
   return url;
 }
 
+/**
+ * Cada conexão nova assume o papel restrito hub_app uma única vez (nível de sessão).
+ * Assim cada consulta custa UMA ida ao banco — antes eram 6 (begin, set role,
+ * timeout, read only, consulta, commit), ~100 ms cada.
+ * Em produção, o usuário hub_login já tem `ALTER ROLE ... SET role = hub_app`.
+ */
 function pool(): pg.Pool {
   if (!globalForPg.__hubPool) {
-    globalForPg.__hubPool = new pg.Pool({
+    const p = new pg.Pool({
       connectionString: connectionString(),
-      // Supabase exige TLS. O certificado do pooler é validado pela cadeia pública quando disponível.
       ssl: { rejectUnauthorized: false },
-      max: Number(process.env.DB_POOL_MAX ?? 4),
-      idleTimeoutMillis: 10_000,
+      max: Number(process.env.DB_POOL_MAX ?? 10),
+      idleTimeoutMillis: 60_000,
       connectionTimeoutMillis: 10_000,
+      keepAlive: true,
     });
+    p.on("error", () => undefined);
+    globalForPg.__hubPool = p;
   }
   return globalForPg.__hubPool;
 }
 
-/**
- * Toda consulta roda numa transação com SET LOCAL ROLE hub_app:
- * mesmo que a credencial configurada seja mais ampla, a aplicação só
- * enxerga o schema hub (views e funções do Hub).
- */
-async function run<T>(sql: string, params: unknown[], readOnly: boolean, timeout = "20s"): Promise<T[]> {
-  const client = await pool().connect();
+type HubClient = pg.PoolClient & { __hubReady?: boolean };
+
+/** Obtém uma conexão já restrita ao papel hub_app (SET ROLE só na primeira vez de cada conexão). */
+async function acquire(): Promise<HubClient> {
+  const client = (await pool().connect()) as HubClient;
+  if (!client.__hubReady) {
+    try {
+      await client.query("set role hub_app; set statement_timeout = 30000");
+      client.__hubReady = true;
+    } catch (err) {
+      client.release(err as Error);
+      throw err;
+    }
+  }
+  return client;
+}
+
+export async function query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+  const client = await acquire();
   try {
-    await client.query("begin");
-    await client.query("set local role hub_app");
-    await client.query(`set local statement_timeout = '${timeout}'`);
-    if (readOnly) await client.query("set transaction read only");
     const res = await client.query(sql, params);
-    await client.query("commit");
     return res.rows as T[];
-  } catch (err) {
-    await client.query("rollback").catch(() => undefined);
-    throw err;
   } finally {
     client.release();
   }
 }
 
-export function query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
-  return run<T>(sql, params, true);
-}
-
 export async function queryOne<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T | null> {
-  const rows = await run<T>(sql, params, true);
+  const rows = await query<T>(sql, params);
   return rows[0] ?? null;
 }
 
-export function execute<T = Record<string, unknown>>(sql: string, params: unknown[] = [], timeout = "120s"): Promise<T[]> {
-  return run<T>(sql, params, false, timeout);
+/** Operações longas (ex.: executar validações): timeout estendido só nesta conexão. */
+export async function execute<T = Record<string, unknown>>(sql: string, params: unknown[] = [], timeout = "120s"): Promise<T[]> {
+  const client = await acquire();
+  try {
+    await client.query(`set statement_timeout = '${timeout.replace(/[^0-9a-z]/gi, "")}'`);
+    const res = await client.query(sql, params);
+    return res.rows as T[];
+  } finally {
+    await client.query("set statement_timeout = 30000").catch(() => undefined);
+    client.release();
+  }
 }

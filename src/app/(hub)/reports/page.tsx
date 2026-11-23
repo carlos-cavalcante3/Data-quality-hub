@@ -29,7 +29,7 @@ export default async function ReportsPage() {
             <select name="regra" defaultValue="">
               <option value="">Todas as regras</option>
               {rules.map((r) => (
-                <option key={r.code} value={r.code}>{r.name}</option>
+                <option key={r.code} value={r.code}>{r.problem_label ?? r.name}</option>
               ))}
             </select>
           </label>
@@ -55,16 +55,13 @@ export default async function ReportsPage() {
             <textarea name="notas" maxLength={2000} placeholder="Ex.: Solicitamos a correção dos registros até 15/12. A evolução será acompanhada nas próximas avaliações." />
           </label>
           <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" name="exemplos" value="1" /> Incluir exemplos de registros afetados (somente identificador e nome do negócio/empresa)
+            <input type="checkbox" name="exemplos" value="1" /> Incluir exemplos de registros afetados
           </label>
           <div className="full">
             <button className="btn btn-primary">Gerar relatório</button>
           </div>
         </form>
       </Card>
-      <div className="callout callout-info mt">
-        LGPD: relatórios nunca incluem e-mail, telefone ou CPF. Contatos aparecem apenas como “Contato ######”. Exemplos de registros são opcionais e a geração fica registrada em auditoria.
-      </div>
     </>
   );
 }

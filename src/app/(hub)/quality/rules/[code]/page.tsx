@@ -84,6 +84,21 @@ export default async function RuleDetailPage({
         <Kpi label="Registros aprovados" value={fmtInt(passed)} footer={!dept ? <div className="kpi-meta"><Delta value={rule.delta_score} /><span className="muted small">vs {fmtDate(rule.previous_day)}</span></div> : undefined} />
       </div>
 
+      {(failed ?? 0) > 0 && rule.problem_label && (
+        <Card className="mt" title={`Problema: ${rule.problem_label}`} subtitle={`${fmtInt(failed)} de ${fmtInt(evaluated)} registros${deptName ? ` · ${deptName}` : ""}`}>
+          <div className="grid g-2">
+            <div>
+              <div className="kpi-label">Por que importa</div>
+              <p style={{ margin: "4px 0 0" }}>{rule.impact}</p>
+            </div>
+            <div>
+              <div className="kpi-label">Como corrigir</div>
+              <p style={{ margin: "4px 0 0" }}>{rule.recommendation}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card title="Origem e regra do indicador" className="mt">
         <Provenance
           items={[
@@ -127,7 +142,7 @@ export default async function RuleDetailPage({
         )}
         <EChart
           title="Registros afetados por departamento"
-          subtitle="Clique para filtrar"
+          subtitle="Ordem: mais afetados primeiro · clique para filtrar"
           option={barScores({
             categories: byDept.map((d) => d.department_name),
             values: byDept.map((d) => d.records_failed),
@@ -145,7 +160,7 @@ export default async function RuleDetailPage({
       <Card
         className="mt"
         title={`Registros afetados (${fmtInt(failures.total)})`}
-        subtitle="Somente identificador e rótulo não sensível. Dados pessoais nunca são exibidos (LGPD)."
+        subtitle={rule.problem_label ?? undefined}
         actions={
           <form className="filter" style={{ flexDirection: "row", gap: 6 }}>
             {dept && <input type="hidden" name="departamento" value={dept} />}
@@ -204,11 +219,11 @@ export default async function RuleDetailPage({
             </label>
             <label>
               Título
-              <input name="title" required defaultValue={`${rule.name}${deptName ? ` — ${deptName}` : ""}`} />
+              <input name="title" required defaultValue={`${rule.problem_label ?? rule.name}${deptName ? ` — ${deptName}` : ""}`} />
             </label>
             <label className="full">
               Descrição
-              <textarea name="description" defaultValue={`${fmtInt(failed)} de ${fmtInt(evaluated)} registros (${fmtPct(evaluated ? (100 * (failed ?? 0)) / evaluated : null)}) não atendem à regra "${rule.name}" na avaliação de ${fmtDateTime(rule.last_evaluated_at)}.`} />
+              <textarea name="description" defaultValue={`${fmtInt(failed)} de ${fmtInt(evaluated)} registros (${fmtPct(evaluated ? (100 * (failed ?? 0)) / evaluated : null)}): ${(rule.problem_label ?? rule.name).toLowerCase()}. Avaliação de ${fmtDateTime(rule.last_evaluated_at)}. ${rule.impact ?? ""}`} />
             </label>
             <div className="full">
               <button className="btn btn-primary">Registrar issue</button>

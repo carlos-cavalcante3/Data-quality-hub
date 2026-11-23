@@ -5,6 +5,7 @@ import { PERIOD_OPTIONS } from "@/lib/format";
 import { Badge, Card, Delta, EmptyState, PageHeader, ScoreBar, SeverityBadge } from "@/components/ui";
 import { C, barScores, lineTrend, stackedBars } from "@/lib/charts";
 import { DIMENSION_LABEL, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
+import { RULE_SORTS, byAffected, problemOf, sortRules } from "@/lib/sort";
 import { getDepartmentDimensionIssues, getDepartments, getDimensions, getRules, getScoreTrend, getScoresLatest } from "@/lib/queries";
 
 export const metadata = { title: "Data Quality" };
@@ -12,7 +13,7 @@ export const metadata = { title: "Data Quality" };
 export default async function QualityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dimensao?: string; dataset?: string; departamento?: string; periodo?: string; q?: string }>;
+  searchParams: Promise<{ dimensao?: string; dataset?: string; departamento?: string; periodo?: string; q?: string; ordem?: string }>;
 }) {
   const sp = await searchParams;
   const days = Number(sp.periodo ?? 90) || 90;
@@ -20,12 +21,13 @@ export default async function QualityPage({
     getRules(), getScoresLatest(), getScoreTrend(days), getDimensions(), getDepartments(), getDepartmentDimensionIssues(),
   ]);
 
-  const rules = rulesAll.filter(
+  const filtered = rulesAll.filter(
     (r) =>
       (!sp.dimensao || r.dimension === sp.dimensao) &&
       (!sp.dataset || r.dataset_name === sp.dataset) &&
-      (!sp.q || (r.name + r.code + (r.column_name ?? "")).toLowerCase().includes(sp.q.toLowerCase())),
+      (!sp.q || (r.name + (r.problem_label ?? "") + r.code + (r.column_name ?? "")).toLowerCase().includes(sp.q.toLowerCase())),
   );
+  const rules = sortRules(filtered, sp.ordem);
   const datasets = [...new Set(rulesAll.map((r) => r.dataset_name))].sort();
 
   const dimScores = dims.map((d) => scores.find((s) => s.level === "dimensao" && s.dimension === d.code));
@@ -35,7 +37,7 @@ export default async function QualityPage({
     .map((d) => ({ name: d.name, data: dayList.map((day) => trend.find((t) => t.day === day && t.level === "dimensao" && t.dimension === d.code)?.score ?? null) }));
 
   const completeness = rulesAll
-    .filter((r) => r.dimension === "completude" && (r.records_evaluated ?? 0) > 0)
+    .filter((r) => r.dimension === "completude" && (r.records_evaluated ?? 0) >= r.min_population)
     .map((r) => ({ ...r, pct: (100 * (r.records_failed ?? 0)) / (r.records_evaluated ?? 1) }))
     .sort((a, b) => b.pct - a.pct);
 
@@ -52,7 +54,7 @@ export default async function QualityPage({
     .filter((d) => d.occ > 0)
     .sort((a, b) => b.occ - a.occ);
 
-  const validVsInvalid = rules.filter((r) => (r.records_evaluated ?? 0) > 0).sort((a, b) => (b.records_failed ?? 0) - (a.records_failed ?? 0)).slice(0, 15);
+  const validVsInvalid = rules.filter((r) => (r.records_failed ?? 0) > 0).sort(byAffected).slice(0, 15);
 
   return (
     <>
@@ -67,6 +69,7 @@ export default async function QualityPage({
           { key: "dataset", label: "Tabela", type: "select", allLabel: "Todas", options: datasets.map((d) => ({ value: d, label: d })) },
           { key: "periodo", label: "Período", type: "select", options: PERIOD_OPTIONS, defaultValue: "90" },
           { key: "q", label: "Regra ou campo", type: "search", placeholder: "ex.: cnpj" },
+          { key: "ordem", label: "Ordenar regras por", type: "select", options: RULE_SORTS, defaultValue: "prioridade" },
         ]}
       />
 
@@ -145,14 +148,14 @@ export default async function QualityPage({
 
       <div style={{ marginTop: 14 }}>
         <EChart
-          title="Registros válidos × inválidos por regra"
-          subtitle="15 regras com mais registros afetados (filtros aplicados)"
+          title="Registros afetados × conformes por problema"
+          subtitle="15 problemas com mais registros afetados (filtros aplicados) · ordem: afetados"
           option={stackedBars({
-            categories: validVsInvalid.map((r) => r.name),
+            categories: validVsInvalid.map((r) => problemOf(r)),
             horizontal: true,
             series: [
-              { name: "Inválidos", data: validVsInvalid.map((r) => r.records_failed ?? 0), color: C.red },
-              { name: "Válidos", data: validVsInvalid.map((r) => r.records_passed ?? 0), color: "#bbdfc6" },
+              { name: "Afetados", data: validVsInvalid.map((r) => r.records_failed ?? 0), color: C.red },
+              { name: "Conformes", data: validVsInvalid.map((r) => r.records_passed ?? 0), color: "#bbdfc6" },
             ],
             links: validVsInvalid.map((r) => `/quality/rules/${r.code}`),
           })}
@@ -161,7 +164,7 @@ export default async function QualityPage({
         />
       </div>
 
-      <Card title={`Regras de qualidade (${rules.length})`} subtitle="Cada linha mostra a população avaliada, os registros afetados e a variação em relação a ~30 dias atrás" className="mt">
+      <Card title={`Regras de qualidade (${rules.length})`} subtitle={`Ordenadas por: ${RULE_SORTS.find((s) => s.value === (sp.ordem ?? "prioridade"))?.label.toLowerCase()} · cada linha mostra a população avaliada, os registros afetados e a variação em ~30 dias`} className="mt">
         <div className="table-wrap" style={{ marginTop: 4 }}>
           <table className="t">
             <thead>
@@ -184,6 +187,7 @@ export default async function QualityPage({
                 <tr key={r.code}>
                   <td>
                     <Link href={`/quality/rules/${r.code}`}>{r.name}</Link>
+                    {(r.records_failed ?? 0) > 0 && <div className="small" style={{ color: "var(--bad)" }}>{problemOf(r)}: {fmtInt(r.records_failed)}</div>}
                     <div className="muted small mono">{r.code}</div>
                   </td>
                   <td>{DIMENSION_LABEL[r.dimension]}</td>

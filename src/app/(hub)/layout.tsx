@@ -6,12 +6,11 @@ import { fmtAgo, fmtDateTime } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function HubLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser("viewer");
-  const meta = await queryOne<{ last_run: Date | null; last_status: string | null; last_data: Date | null }>(
+  const [user, meta] = await Promise.all([requireUser("viewer"), queryOne<{ last_run: Date | null; last_status: string | null; last_data: Date | null }>(
     `select (select started_at from hub.v_last_run) as last_run,
             (select status from hub.v_last_run) as last_status,
             (select max(last_updated_at) from hub.v_dataset_metrics_latest where layer in ('bronze','silver','privado')) as last_data`,
-  ).catch(() => null);
+  ).catch(() => null)]);
 
   return (
     <div className="shell">

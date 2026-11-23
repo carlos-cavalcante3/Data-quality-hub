@@ -12,6 +12,8 @@ export const C = {
   grid: "#eef0f3",
 };
 
+export const r1 = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.round(v * 10) / 10);
+
 export function scoreColor(v: number | null | undefined): string {
   if (v === null || v === undefined) return C.gray;
   if (v >= 95) return C.green;
@@ -46,7 +48,7 @@ export function lineTrend(opts: {
     series: opts.series.map((s, i) => ({
       name: s.name,
       type: "line",
-      data: s.data,
+      data: s.data.map((v) => r1(v)),
       smooth: false,
       connectNulls: true,
       symbolSize: 5,
@@ -82,12 +84,12 @@ export function barScores(opts: {
   name?: string;
 }) {
   const data = opts.values.map((v, i) => ({
-    value: v,
+    value: r1(v),
     link: opts.links?.[i],
     itemStyle: { color: opts.colorByScore === false ? opts.color ?? C.blue : scoreColor(v), borderRadius: opts.horizontal ? [0, 3, 3, 0] : [3, 3, 0, 0] },
   }));
   const valueAxis = { type: "value", max: opts.max, axisLabel: { formatter: `{value}${opts.unit ?? ""}`, fontSize: 11 }, splitLine };
-  const catAxis = { type: "category", data: opts.categories, axisLine, axisLabel: { fontSize: 11, width: 170, overflow: "truncate" }, inverse: opts.horizontal };
+  const catAxis = { type: "category", data: opts.categories, axisLine, axisLabel: { fontSize: 11, width: 250, overflow: "truncate" }, inverse: opts.horizontal };
   return {
     grid: { ...baseGrid, left: opts.horizontal ? 8 : 48 },
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
@@ -117,7 +119,7 @@ export function stackedBars(opts: {
   percent?: boolean;
 }) {
   const valueAxis = { type: "value", splitLine, axisLabel: { fontSize: 11 } };
-  const catAxis = { type: "category", data: opts.categories, axisLine, axisLabel: { fontSize: 11, width: 170, overflow: "truncate" }, inverse: opts.horizontal };
+  const catAxis = { type: "category", data: opts.categories, axisLine, axisLabel: { fontSize: 11, width: 250, overflow: "truncate" }, inverse: opts.horizontal };
   return {
     grid: { ...baseGrid, left: opts.horizontal ? 8 : 48 },
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
@@ -140,7 +142,7 @@ export function heatmap(opts: { x: string[]; y: string[]; values: [number, numbe
     grid: { left: 8, right: 16, top: 8, bottom: 56, containLabel: true },
     tooltip: { position: "top" },
     xAxis: { type: "category", data: opts.x, splitArea: { show: true }, axisLabel: { fontSize: 11 } },
-    yAxis: { type: "category", data: opts.y, splitArea: { show: true }, axisLabel: { fontSize: 11, width: 170, overflow: "truncate" } },
+    yAxis: { type: "category", data: opts.y, splitArea: { show: true }, axisLabel: { fontSize: 11, width: 250, overflow: "truncate" } },
     visualMap: {
       min: 50,
       max: 100,
@@ -155,7 +157,7 @@ export function heatmap(opts: { x: string[]; y: string[]; values: [number, numbe
     series: [
       {
         type: "heatmap",
-        data: opts.values.map(([x, y, v]) => [x, y, v === null ? "-" : v]),
+        data: opts.values.map(([x, y, v]) => [x, y, v === null ? "-" : r1(v)]),
         label: { show: true, fontSize: 10, formatter: "{@[2]}" },
         emphasis: { itemStyle: { shadowBlur: 6, shadowColor: "rgba(0,0,0,.25)" } },
       },

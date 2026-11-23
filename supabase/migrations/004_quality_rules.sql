@@ -112,7 +112,7 @@ select quality.upsert_rule('ORG_SEGMENTO', 'Empresa cliente com segmento',
       from quality.vw_orgs_clientes $q$);
 
 select quality.upsert_rule('CONTATO_MEIO', 'Contato com e-mail ou telefone',
-  'Contatos devem ter ao menos um meio de contato (e-mail ou telefone). Só contagem: nenhum dado pessoal é exibido.',
+  'Contatos devem ter ao menos um meio de contato (e-mail ou telefone).',
   'silver.contacts', 'email_principal / telefone_principal', 'completude', 'contato', 'Todos os contatos', 'media', 90,
   $q$ select c.id, ud.department_id,
              nullif(btrim(c.email_principal),'') is not null or nullif(btrim(c.telefone_principal),'') is not null,
@@ -143,7 +143,7 @@ select quality.upsert_rule('ORG_CNPJ_VALIDO', 'CNPJ válido (dígitos verificado
       where nullif(btrim(o.cnpj),'') is not null $q$);
 
 select quality.upsert_rule('CONTATO_EMAIL_VALIDO', 'E-mail de contato em formato válido',
-  'E-mails preenchidos devem ter formato válido. O e-mail não é exibido.',
+  'E-mails preenchidos devem ter formato válido.',
   'silver.contacts', 'email_principal', 'validade', 'contato', 'Contatos com e-mail preenchido', 'media', 98,
   $q$ select c.id, ud.department_id, c.email_principal ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$',
              'Contato ' || right(c.id, 6), null
@@ -201,7 +201,7 @@ select quality.upsert_rule('ORG_NOME_UNICO', 'Nome de empresa não duplicado',
       left join governance.vw_user_department ud on ud.user_id = b.owner_id $q$);
 
 select quality.upsert_rule('CONTATO_EMAIL_UNICO', 'E-mail de contato não repetido',
-  'O mesmo e-mail não deve aparecer em mais de um contato. O e-mail não é exibido.',
+  'O mesmo e-mail não deve aparecer em mais de um contato.',
   'silver.contacts', 'email_principal', 'unicidade', 'contato', 'Contatos com e-mail preenchido', 'baixa', 97,
   $q$ with base as (
         select c.id, c.organization_id, lower(btrim(c.email_principal)) as k

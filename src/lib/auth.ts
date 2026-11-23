@@ -31,10 +31,21 @@ function devBypassEmail(): string | null {
   return email.toLowerCase();
 }
 
+// Papel do usuário em cache por 2 min (evita uma ida ao banco a cada navegação).
+const roleCache = new Map<string, { role: Role | null; at: number }>();
+
 async function resolveRole(email: string): Promise<Role | null> {
   if (list(process.env.HUB_ADMIN_EMAILS).includes(email)) return "admin";
+  const hit = roleCache.get(email);
+  if (hit && Date.now() - hit.at < 120_000) return hit.role;
   const row = await queryOne<{ role: Role | null }>("select hub.fn_user_role($1) as role", [email]);
-  return row?.role ?? null;
+  const role = row?.role ?? null;
+  roleCache.set(email, { role, at: Date.now() });
+  return role;
+}
+
+export function clearRoleCache() {
+  roleCache.clear();
 }
 
 export const getUser = cache(async (): Promise<HubUser | null> => {
@@ -42,8 +53,9 @@ export const getUser = cache(async (): Promise<HubUser | null> => {
   if (bypass) return { email: bypass, role: await resolveRole(bypass), devBypass: true };
 
   const supabase = await supabaseServer();
-  const { data } = await supabase.auth.getUser();
-  const email = data.user?.email?.toLowerCase();
+  // getClaims valida o JWT localmente (chaves assimétricas) e só consulta o Auth quando necessário.
+  const { data } = await supabase.auth.getClaims();
+  const email = (data?.claims?.email as string | undefined)?.toLowerCase();
   if (!email || !isAllowedEmail(email)) return null;
   return { email, role: await resolveRole(email), devBypass: false };
 });

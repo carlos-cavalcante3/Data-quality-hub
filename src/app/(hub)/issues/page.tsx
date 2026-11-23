@@ -63,7 +63,7 @@ export default async function IssuesPage({ searchParams }: { searchParams: Promi
                 {issues.map((i) => (
                   <tr key={i.id}>
                     <td className="muted">{i.id}</td>
-                    <td><Link href={`/issues/${i.id}`}>{i.title}</Link>{i.rule_code && <div className="muted small mono">{i.rule_code}</div>}</td>
+                    <td><Link href={`/issues/${i.id}`}>{i.title}</Link>{i.rule_name && <div className="muted small">Regra: {i.rule_name}</div>}</td>
                     <td className="small">{i.department_name ?? "Consolidado"}</td>
                     <td><Badge kind={i.status}>{ISSUE_STATUS_LABEL[i.status]}</Badge></td>
                     <td className="small nowrap">{fmtDate(i.detected_at)}</td>
@@ -87,7 +87,7 @@ export default async function IssuesPage({ searchParams }: { searchParams: Promi
               <select name="rule_code" defaultValue="">
                 <option value="">— sem regra (problema manual) —</option>
                 {rules.map((r) => (
-                  <option key={r.code} value={r.code}>{r.name} ({r.code})</option>
+                  <option key={r.code} value={r.code}>{r.problem_label ?? r.name}</option>
                 ))}
               </select>
             </label>

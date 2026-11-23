@@ -4,6 +4,7 @@ import { FilterBar } from "@/components/FilterBar";
 import { PERIOD_OPTIONS } from "@/lib/format";
 import { Badge, Card, EmptyState, Kpi, PageHeader, SeverityBadge } from "@/components/ui";
 import { C, barScores, heatmap, lineTrend, stackedBars } from "@/lib/charts";
+import { byPriority, problemOf } from "@/lib/sort";
 import { DIMENSION_LABEL, bandOf, fmtAgo, fmtDateTime, fmtInt, fmtPct } from "@/lib/format";
 import {
   getDatasetMetricsLatest, getDepartmentSummary, getDimensions, getExecutionDaily, getLastRun, getPipelines, getRules,
@@ -12,7 +13,6 @@ import {
 
 export const metadata = { title: "Overview" };
 
-const SEV_RANK: Record<string, number> = { critica: 4, alta: 3, media: 2, baixa: 1 };
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
   const sp = await searchParams;
@@ -81,7 +81,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   // Atenção: regras abaixo da meta, ordenadas por severidade e volume
   const attention = rules
     .filter((r) => r.meets_threshold === false || r.last_status === "erro")
-    .sort((a, b) => (SEV_RANK[b.severity] ?? 0) - (SEV_RANK[a.severity] ?? 0) || (b.records_failed ?? 0) - (a.records_failed ?? 0))
+    .sort(byPriority)
     .slice(0, 10);
   const badPipelines = pipelines.filter((p) => ["atrasado", "critico", "sem_evidencia"].includes(p.health));
 
@@ -206,7 +206,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       </div>
 
       <div className="grid g-2" style={{ marginTop: 14 }}>
-        <Card title="Exigem atenção" subtitle="Regras abaixo da meta, por severidade e volume de registros afetados">
+        <Card title="Exigem atenção" subtitle="Problemas fora da meta · ordem: severidade, depois registros afetados">
           {attention.length === 0 ? (
             <EmptyState title="Todas as regras estão dentro da meta" />
           ) : (
@@ -214,7 +214,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               <table className="t">
                 <thead>
                   <tr>
-                    <th>Regra</th>
+                    <th>Problema</th>
                     <th>Dimensão</th>
                     <th>Sev.</th>
                     <th className="num">Afetados</th>
@@ -226,8 +226,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
                   {attention.map((r) => (
                     <tr key={r.code}>
                       <td>
-                        <Link href={`/quality/rules/${r.code}`}>{r.name}</Link>
-                        <div className="muted small">{r.dataset_name}</div>
+                        <Link href={`/quality/rules/${r.code}`}>{problemOf(r)}</Link>
+                        <div className="muted small">{r.dataset_name}{r.column_name ? ` · ${r.column_name}` : ""}</div>
                       </td>
                       <td>{DIMENSION_LABEL[r.dimension]}</td>
                       <td><SeverityBadge severity={r.severity} /></td>

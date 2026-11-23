@@ -1,5 +1,6 @@
 "use client";
 
+import { Logo } from "@/components/Logo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -27,7 +28,7 @@ export function Sidebar({ email, role }: { email: string; role: string }) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-mark" />
+        <Logo />
         <div>
           <div className="brand-name">Data Quality Hub</div>
           <div className="brand-sub">Engenharia de Dados</div>

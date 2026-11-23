@@ -14,7 +14,7 @@ export type Score = {
 };
 export type TrendPoint = { day: string; level: string; dataset_name: string | null; dimension: string | null; score: number | null; records_evaluated: number };
 export type Rule = {
-  id: number; code: string; name: string; description: string; dataset_name: string; column_name: string | null;
+  id: number; code: string; name: string; problem_label: string | null; impact: string | null; recommendation: string | null; min_population: number; description: string; dataset_name: string; column_name: string | null;
   dimension: string; dimension_name: string; entity: string; population: string; severity: string; expected_threshold: number;
   check_sql: string; version: number; active: boolean; updated_at: Date; layer: string | null; criticality: number | null;
   last_run_id: number | null; last_evaluated_at: Date | null; last_status: string | null; error_message: string | null;
@@ -46,7 +46,7 @@ export type DatasetMetric = {
   layer: string | null; pipeline_name: string | null; criticality: number | null; update_frequency: string | null; description: string | null;
 };
 export type Failure = {
-  run_id: number; rule_code: string; rule_name: string; dimension: string; dataset_name: string; entity: string;
+  run_id: number; rule_code: string; rule_name: string; problem_label: string | null; dimension: string; dataset_name: string; entity: string;
   record_id: string; record_label: string | null; detail: string | null; department_id: number | null; department_name: string | null;
 };
 export type Issue = {
@@ -125,9 +125,10 @@ export const getRuleByDepartment = (code: string) =>
     [code],
   );
 
+export type DeptRuleResult = { rule_code: string; rule_name: string; problem_label: string | null; severity: string; entity: string; column_name: string | null; dimension: string; dataset_name: string; records_evaluated: number; records_failed: number; quality_score: number | null };
 export const getDepartmentRuleResults = (departmentId: number) =>
-  query<{ rule_code: string; rule_name: string; dimension: string; dataset_name: string; records_evaluated: number; records_failed: number; quality_score: number | null }>(
-    `select rule_code, rule_name, dimension, dataset_name, records_evaluated, records_failed, quality_score
+  query<DeptRuleResult & { dimension: string; dataset_name: string; records_evaluated: number; records_failed: number; quality_score: number | null }>(
+    `select rule_code, rule_name, problem_label, severity, entity, column_name, dimension, dataset_name, records_evaluated, records_failed, quality_score
      from hub.v_rule_results where department_id = $1 and run_id = (select id from hub.v_last_run) and status = 'ok'
      order by records_failed desc`,
     [departmentId],
@@ -272,4 +273,29 @@ export const getAuditLog = (limit = 100) =>
   query<{ id: number; at: Date; actor: string; action: string; target: string | null; details: unknown }>(
     "select * from hub.v_audit_log order by at desc limit $1",
     [limit],
+  );
+
+// ----------------------------------------------------------------------------
+// Composição dos departamentos
+// ----------------------------------------------------------------------------
+export const getDepartmentMembers = (departmentId: number) =>
+  query<{ user_id: string; user_name: string; rule: string; all_teams: string | null; teams_count: number; deals_total: number; deals_comerciais: number; empresas: number }>(
+    "select * from hub.v_department_members where department_id = $1 order by deals_total desc, user_name",
+    [departmentId],
+  );
+export const getDepartmentPipelines = (departmentId: number) =>
+  query<{ pipeline_name: string | null; escopo: string; deals: number }>(
+    "select pipeline_name, escopo, deals from hub.v_department_pipelines where department_id = $1 order by deals desc",
+    [departmentId],
+  );
+export const getDepartmentEntities = (departmentId?: number | null) =>
+  query<{ department_id: number; entity: string; rules: number; checks_evaluated: number; occurrences: number }>(
+    "select * from hub.v_department_entities where ($1::int is null or department_id = $1) order by checks_evaluated desc",
+    [departmentId ?? null],
+  );
+export const getTeamMembersAssignedElsewhere = (departmentId: number, teamName: string) =>
+  query<{ user_name: string; department_id: number; all_teams: string | null }>(
+    `select m.user_name, m.department_id, m.all_teams from hub.v_department_members m
+     where m.department_id <> $1 and $2 = any (string_to_array(m.all_teams, ', ')) order by m.user_name`,
+    [departmentId, teamName],
   );

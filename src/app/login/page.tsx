@@ -1,3 +1,4 @@
+import { Logo } from "@/components/Logo";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import { LoginForm } from "./LoginForm";
@@ -13,7 +14,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="login-wrap">
       <div className="login-card">
         <div className="brand" style={{ padding: 0, border: 0 }}>
-          <div className="brand-mark" />
+          <Logo />
           <div>
             <div className="brand-name">Data Quality Hub</div>
             <div className="brand-sub">Engenharia de Dados · Avantia</div>

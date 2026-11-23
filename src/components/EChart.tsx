@@ -2,7 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import * as echarts from "echarts";
+import * as echarts from "echarts/core";
+import { BarChart, GraphChart, HeatmapChart, LineChart, ScatterChart } from "echarts/charts";
+import { GridComponent, LegendComponent, MarkLineComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+
+echarts.use([
+  BarChart, GraphChart, HeatmapChart, LineChart, ScatterChart,
+  GridComponent, LegendComponent, MarkLineComponent, TooltipComponent, VisualMapComponent, CanvasRenderer,
+]);
 import { Download } from "lucide-react";
 
 export const PALETTE = {

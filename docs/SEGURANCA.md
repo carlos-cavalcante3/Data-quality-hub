@@ -16,6 +16,7 @@ O `.env.local` atual usa o usuário `postgres`. A aplicação se restringe sozin
 
 ```sql
 create role hub_login login password '<defina uma senha forte>' in role hub_app;
+alter role hub_login set role = 'hub_app';          -- toda sessão já nasce restrita ao papel do Hub
 alter role hub_login set statement_timeout = '30s';
 alter role hub_login set idle_in_transaction_session_timeout = '30s';
 alter role hub_login connection limit 10;

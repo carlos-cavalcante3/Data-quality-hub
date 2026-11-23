@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
+import { clearRoleCache, requireUser } from "@/lib/auth";
 import { execute } from "@/lib/db";
 import { ISSUE_STATUS } from "@/lib/format";
 
@@ -61,6 +61,7 @@ export async function upsertUserAction(formData: FormData): Promise<void> {
   const user = await requireUser("admin");
   const d = userSchema.parse(Object.fromEntries(formData));
   await execute("select hub.fn_app_user_upsert($1, $2, $3, $4, $5)", [user.email, user.role, d.email, d.role, d.active]);
+  clearRoleCache();
   revalidatePath("/settings");
 }
 
